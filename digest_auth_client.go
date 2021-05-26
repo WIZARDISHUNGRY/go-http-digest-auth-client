@@ -22,6 +22,9 @@ type DigestRequest struct {
 }
 
 type DigestTransport struct {
+	Auth       *authorization
+	Wa         *wwwAuthenticate
+	CertVal    bool
 	Password   string
 	Username   string
 	HTTPClient *http.Client
@@ -87,11 +90,26 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 	}
 
 	dr := NewRequest(username, password, method, uri, body)
+	if dt.Auth != nil {
+		dr.Auth = dt.Auth
+	}
+	if dt.Wa != nil {
+		dr.Wa = dt.Wa
+	}
 	if dt.HTTPClient != nil {
 		dr.HTTPClient = dt.HTTPClient
 	}
 
-	return dr.Execute()
+	resp, err = dr.Execute()
+	if err == nil {
+		if dr.Auth != nil {
+			dt.Auth = dr.Auth
+		}
+		if dr.Wa != nil {
+			dt.Wa = dr.Wa
+		}
+	}
+	return
 }
 
 // Execute initialise the request and get a response
