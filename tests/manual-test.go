@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	dac "github.com/xinsnake/go-http-digest-auth-client"
+	dac "github.com/WIZARDISHUNGRY/go-http-digest-auth-client"
 )
 
 const (
