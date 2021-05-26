@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -28,6 +29,7 @@ type DigestTransport struct {
 	Password   string
 	Username   string
 	HTTPClient *http.Client
+	mutex      sync.Mutex
 }
 
 // NewRequest creates a new DigestRequest object
@@ -90,6 +92,7 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 	}
 
 	dr := NewRequest(username, password, method, uri, body, req.Header)
+	dt.mutex.Lock()
 	if dt.Auth != nil {
 		dr.Auth = dt.Auth
 	}
@@ -99,9 +102,11 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 	if dt.HTTPClient != nil {
 		dr.HTTPClient = dt.HTTPClient
 	}
+	dt.mutex.Unlock()
 
 	resp, err = dr.Execute()
-	if err == nil {
+	dt.mutex.Lock()
+	if err == nil && resp.StatusCode != 401 {
 		if dr.Auth != nil {
 			dt.Auth = dr.Auth
 		}
@@ -109,6 +114,7 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 			dt.Wa = dr.Wa
 		}
 	}
+	dt.mutex.Unlock()
 	return
 }
 
@@ -116,23 +122,28 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 func (dr *DigestRequest) Execute() (resp *http.Response, err error) {
 
 	if dr.Auth != nil {
-		return dr.executeExistingDigest()
-	}
+		resp, err = dr.executeExistingDigest()
+		if err == nil && resp.StatusCode != 401 {
+			return resp, err
+		}
 
-	var req *http.Request
-	if req, err = http.NewRequest(dr.Method, dr.URI, bytes.NewReader([]byte(dr.Body))); err != nil {
-		return nil, err
-	}
-	req.Header = dr.Header
+	} else {
 
-	client := dr.getHTTPClient()
+		var req *http.Request
+		if req, err = http.NewRequest(dr.Method, dr.URI, bytes.NewReader([]byte(dr.Body))); err != nil {
+			return nil, err
+		}
+		req.Header = dr.Header
 
-	if resp, err = client.Do(req); err != nil {
-		return nil, err
+		client := dr.getHTTPClient()
+
+		if resp, err = client.Do(req); err != nil {
+			return nil, err
+		}
 	}
 
 	if resp.StatusCode == 401 {
-		return dr.executeNewDigest(resp)
+		resp, err = dr.executeNewDigest(resp)
 	}
 
 	// return the resp to user to handle resp.body.Close()
@@ -158,7 +169,6 @@ func (dr *DigestRequest) executeNewDigest(resp *http.Response) (resp2 *http.Resp
 	if auth, err = newAuthorization(dr); err != nil {
 		return nil, err
 	}
-
 	if resp2, err = dr.executeRequest(auth.toString()); err != nil {
 		return nil, err
 	}
@@ -185,7 +195,7 @@ func (dr *DigestRequest) executeRequest(authString string) (resp *http.Response,
 		return nil, err
 	}
 	req.Header = dr.Header
-	req.Header.Add("Authorization", authString)
+	req.Header.Set("Authorization", authString) // use set instead of add to overwrite old value
 
 	client := dr.getHTTPClient()
 	return client.Do(req)
