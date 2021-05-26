@@ -21,7 +21,7 @@ func main() {
 	var body []byte
 	var err error
 
-	dr := dac.NewRequest(username, password, method, uri, "")
+	dr := dac.NewRequest(username, password, method, uri, "", nil)
 
 	if resp, err = dr.Execute(); err != nil {
 		log.Fatalln(err)
