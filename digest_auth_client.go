@@ -31,9 +31,9 @@ type DigestTransport struct {
 }
 
 // NewRequest creates a new DigestRequest object
-func NewRequest(username, password, method, uri, body string) DigestRequest {
+func NewRequest(username, password, method, uri, body string, header http.Header) DigestRequest {
 	dr := DigestRequest{}
-	dr.UpdateRequest(username, password, method, uri, body)
+	dr.UpdateRequest(username, password, method, uri, body, header)
 	dr.CertVal = true
 	return dr
 }
@@ -65,13 +65,13 @@ func (dr *DigestRequest) getHTTPClient() *http.Client {
 
 // UpdateRequest is called when you want to reuse an existing
 //  DigestRequest connection with new request information
-func (dr *DigestRequest) UpdateRequest(username, password, method, uri, body string) *DigestRequest {
+func (dr *DigestRequest) UpdateRequest(username, password, method, uri, body string, header http.Header) *DigestRequest {
 	dr.Body = body
 	dr.Method = method
 	dr.Password = password
 	dr.URI = uri
 	dr.Username = username
-	dr.Header = make(map[string][]string)
+	dr.Header = header
 	return dr
 }
 
@@ -89,7 +89,7 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 		body = buf.String()
 	}
 
-	dr := NewRequest(username, password, method, uri, body)
+	dr := NewRequest(username, password, method, uri, body, req.Header)
 	if dt.Auth != nil {
 		dr.Auth = dt.Auth
 	}
