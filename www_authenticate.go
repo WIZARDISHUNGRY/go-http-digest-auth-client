@@ -21,7 +21,7 @@ func newWwwAuthenticate(s string) *wwwAuthenticate {
 
 	var wa = wwwAuthenticate{}
 
-	algorithmRegex := regexp.MustCompile(`algorithm="?([^ ,]+)"?`) // this won't match parens but it works
+	algorithmRegex := regexp.MustCompile(`algorithm="?([^ ,"]+)"?`) // this won't match balanced quotes but it works
 	algorithmMatch := algorithmRegex.FindStringSubmatch(s)
 	if algorithmMatch != nil {
 		wa.Algorithm = algorithmMatch[1]
